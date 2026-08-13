@@ -1,0 +1,253 @@
+/**
+ * styles.scss — Carbon-conformant styling.
+ *
+ * Everything here uses Carbon design tokens rather than raw hex values, so the
+ * app inherits theme switching (g10/g90/g100) for free. Carbon is square by
+ * design: do not add border-radius.
+ */
+
+@use '@carbon/react' with (
+  $font-path: '@ibm/plex'
+);
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/breakpoint' as *;
+
+.apo-content {
+  padding: $spacing-05;
+  background: $background;
+  min-height: 100vh;
+}
+
+/* ── toolbar ─────────────────────────────────────────── */
+.apo-toolbar {
+  margin-bottom: $spacing-05;
+  padding-bottom: $spacing-05;
+  border-bottom: 1px solid $border-subtle-01;
+
+  &__actions {
+    display: flex;
+    gap: $spacing-03;
+    align-items: flex-end;
+    justify-content: flex-end;
+  }
+}
+
+/* ── sections ────────────────────────────────────────── */
+.apo-section {
+  margin-bottom: $spacing-07;
+  background: $layer-01;
+  padding: $spacing-05;
+
+  &__title {
+    @include type-style('heading-03');
+    color: $text-primary;
+    margin-bottom: $spacing-02;
+  }
+
+  &__blurb {
+    @include type-style('body-01');
+    color: $text-secondary;
+    margin-bottom: $spacing-05;
+    max-width: 60ch;
+  }
+}
+
+/* ── table rows ──────────────────────────────────────── */
+.apo-row {
+  cursor: default;
+
+  &:hover { background: $layer-hover-01; }
+
+  &--selected {
+    background: $layer-selected-01;
+    box-shadow: inset 3px 0 0 0 $interactive;
+  }
+
+  &--emphasis .apo-row__label,
+  &--emphasis .apo-value {
+    @include type-style('heading-compact-01');
+    font-weight: 600;
+  }
+
+  &--placeholder {
+    box-shadow: inset 3px 0 0 0 $support-error;
+  }
+
+  &__label {
+    @include type-style('body-compact-01');
+    color: $text-primary;
+    margin-right: $spacing-03;
+  }
+}
+
+.apo-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Values are buttons so they are keyboard reachable; Carbon has no
+   "clickable number" primitive, so this is a minimal reset. */
+.apo-value {
+  @include type-style('body-compact-01');
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: none;
+  padding: $spacing-02 0;
+  color: $text-primary;
+  cursor: pointer;
+  text-align: right;
+  width: 100%;
+
+  &:hover { color: $link-primary; text-decoration: underline; }
+  &:focus { outline: 2px solid $focus; outline-offset: -2px; }
+}
+
+.apo-input {
+  @include type-style('body-compact-01');
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+  text-align: right;
+  background: $field-01;
+  border: none;
+  border-bottom: 1px solid $border-strong-01;
+  padding: $spacing-02 $spacing-03;
+  color: $text-primary;
+
+  &:focus { outline: 2px solid $focus; outline-offset: -2px; }
+}
+
+.apo-rowactions {
+  display: flex;
+  gap: $spacing-01;
+}
+
+/* ── provenance panel ────────────────────────────────── */
+.apo-panel {
+  position: sticky;
+  top: $spacing-05;
+  background: $layer-01;
+  padding: $spacing-05;
+  max-height: calc(100vh - #{$spacing-09});
+  overflow-y: auto;
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: $spacing-04;
+
+    h3 { @include type-style('heading-03'); color: $text-primary; }
+  }
+
+  &__eyebrow {
+    @include type-style('label-01');
+    color: $text-helper;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  &__value {
+    @include type-style('heading-05');
+    font-variant-numeric: tabular-nums;
+    color: $text-primary;
+    margin-bottom: $spacing-03;
+  }
+
+  &__tags {
+    display: flex;
+    gap: $spacing-02;
+    flex-wrap: wrap;
+    margin-bottom: $spacing-05;
+  }
+
+  &__h {
+    @include type-style('heading-compact-01');
+    color: $text-primary;
+    margin: $spacing-05 0 $spacing-02;
+  }
+
+  &__plain {
+    @include type-style('body-01');
+    color: $text-secondary;
+    margin-top: $spacing-02;
+  }
+
+  &__list { margin-top: $spacing-04; }
+}
+
+.apo-code {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  @include type-style('code-01');
+  background: $layer-accent-01;
+  padding: $spacing-03;
+  color: $text-primary;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.apo-chips {
+  display: flex;
+  gap: $spacing-02;
+  flex-wrap: wrap;
+}
+
+/* ── findings & SWOT ─────────────────────────────────── */
+.apo-findings {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+  padding-top: $spacing-05;
+
+  .cds--inline-notification { max-width: none; }
+}
+
+.apo-swot {
+  padding-top: $spacing-05;
+
+  &__tile {
+    height: 100%;
+    background: $layer-01;
+
+    h4 {
+      @include type-style('heading-compact-02');
+      margin-bottom: $spacing-04;
+      padding-bottom: $spacing-02;
+      border-bottom: 1px solid $border-subtle-01;
+    }
+  }
+
+  &__item {
+    margin-bottom: $spacing-04;
+
+    strong { @include type-style('heading-compact-01'); color: $text-primary; display: block; }
+    p      { @include type-style('body-01');            color: $text-secondary; margin-top: $spacing-01; }
+  }
+}
+
+.apo-llm {
+  padding: $spacing-05;
+  background: $layer-01;
+  margin-top: $spacing-05;
+
+  &__actions {
+    display: flex;
+    gap: $spacing-03;
+    align-items: flex-end;
+  }
+
+  &__result { margin-top: $spacing-06; }
+}
+
+.apo-muted {
+  @include type-style('body-01');
+  color: $text-secondary;
+  max-width: 80ch;
+  margin-bottom: $spacing-05;
+}
+
+@include breakpoint-down('md') {
+  .apo-panel { position: static; max-height: none; }
+  .apo-toolbar__actions { justify-content: flex-start; margin-top: $spacing-04; }
+}
