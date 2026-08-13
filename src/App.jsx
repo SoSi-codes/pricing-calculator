@@ -34,10 +34,11 @@ import {
 } from './engine';
 
 const CONFIDENCE_META = {
-  sourced:     { type: 'green',      label: 'Sourced' },
-  derived:     { type: 'blue',       label: 'Derived' },
-  assumption:  { type: 'purple',     label: 'Assumption' },
-  placeholder: { type: 'red',        label: 'Placeholder' },
+  sourced:       { type: 'green',   label: 'Sourced' },
+  derived:       { type: 'blue',    label: 'Derived' },
+  assumption:    { type: 'purple',  label: 'Assumption' },
+  placeholder:   { type: 'red',     label: 'Placeholder' },
+  'user-entered': { type: 'teal',   label: 'User entered' },
 };
 
 const SEVERITY_KIND = { error: 'error', warning: 'warning', info: 'info', success: 'success' };
@@ -433,12 +434,18 @@ export default function App() {
 
 // ─────────────────────────── ROW ───────────────────────────
 function ModelRow({ row, value, error, overridden, selected, editMode, onSelect, onChange, onEditStructure, onDelete, onMove }) {
-  const conf = CONFIDENCE_META[row.confidence] || CONFIDENCE_META.assumption;
   const isEditable = (row.kind === 'input' || row.kind === 'constant') && !row.formula;
   // "overridden" only means something for derived rows — a user has pinned a
   // calculated value to a fixed number. For plain input rows, changing the
   // value is normal intended use, not an override.
   const isPinned = overridden && !isEditable;
+  // When a placeholder input has been filled in by the user, promote its
+  // displayed confidence from red "Placeholder" to teal "User entered".
+  const displayConfidence =
+    row.confidence === 'placeholder' && isEditable && overridden
+      ? 'user-entered'
+      : row.confidence;
+  const conf = CONFIDENCE_META[displayConfidence] || CONFIDENCE_META.assumption;
 
   return (
     <TableRow
@@ -503,9 +510,14 @@ function ProvenancePanel({ row, rows, values, value, overridden, onClose }) {
   const knownIds = new Set(rows.map((r) => r.id));
   const deps  = extractDependencies(row.formula, knownIds);
   const dents = dependentsOf(row.id, rows);
-  const conf  = CONFIDENCE_META[row.confidence] || CONFIDENCE_META.assumption;
+  const isEditable = row.kind === 'input' || row.kind === 'constant';
+  const isPinned = overridden && !isEditable;
+  const displayConfidence =
+    row.confidence === 'placeholder' && isEditable && overridden
+      ? 'user-entered'
+      : row.confidence;
+  const conf  = CONFIDENCE_META[displayConfidence] || CONFIDENCE_META.assumption;
   const p     = row.provenance || {};
-  const isPinned = overridden && row.kind !== 'input' && row.kind !== 'constant';
 
   // Build a live calculation string: substitute each dependency id with its
   // current formatted value so reviewers see the actual numbers, e.g.
@@ -541,7 +553,7 @@ function ProvenancePanel({ row, rows, values, value, overridden, onClose }) {
         {isPinned && <Tag type="teal">pinned override</Tag>}
       </div>
 
-      {row.confidence === 'placeholder' && (
+      {displayConfidence === 'placeholder' && (
         <InlineNotification kind="error" lowContrast hideCloseButton
           title="Unsourced placeholder"
           subtitle="This number was invented so the model would run. Replace it before this figure is used in a decision."
