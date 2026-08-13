@@ -408,6 +408,7 @@ export default function App() {
               <ProvenancePanel
                 row={selectedRow}
                 rows={rows}
+                values={values}
                 value={values[selectedRow.id]}
                 overridden={overrides[selectedRow.id] !== undefined}
                 onClose={() => setSelectedRowId(null)}
@@ -434,13 +435,17 @@ export default function App() {
 function ModelRow({ row, value, error, overridden, selected, editMode, onSelect, onChange, onEditStructure, onDelete, onMove }) {
   const conf = CONFIDENCE_META[row.confidence] || CONFIDENCE_META.assumption;
   const isEditable = (row.kind === 'input' || row.kind === 'constant') && !row.formula;
+  // "overridden" only means something for derived rows — a user has pinned a
+  // calculated value to a fixed number. For plain input rows, changing the
+  // value is normal intended use, not an override.
+  const isPinned = overridden && !isEditable;
 
   return (
     <TableRow
       className={[
         'apo-row',
-        selected    ? 'apo-row--selected'     : '',
-        row.emphasis ? 'apo-row--emphasis'    : '',
+        selected     ? 'apo-row--selected'     : '',
+        row.emphasis  ? 'apo-row--emphasis'    : '',
         row.confidence === 'placeholder' ? 'apo-row--placeholder' : '',
       ].filter(Boolean).join(' ')}
       onDoubleClick={onSelect}
@@ -448,7 +453,7 @@ function ModelRow({ row, value, error, overridden, selected, editMode, onSelect,
     >
       <TableCell>
         <span className="apo-row__label">{row.label}</span>
-        {overridden && <Tag type="teal" size="sm">overridden</Tag>}
+        {isPinned && <Tag type="teal" size="sm">pinned</Tag>}
         {error    && <Tag type="red"  size="sm">{error}</Tag>}
       </TableCell>
 
@@ -458,7 +463,7 @@ function ModelRow({ row, value, error, overridden, selected, editMode, onSelect,
             className="apo-input"
             type="number"
             step="any"
-            value={overridden !== undefined ? value : (row.value ?? value ?? 0)}
+            value={value ?? row.value ?? 0}
             onChange={(e) => onChange(e.target.value)}
             onDoubleClick={(e) => { e.stopPropagation(); onSelect(); }}
             aria-label={row.label}
@@ -494,12 +499,29 @@ function ModelRow({ row, value, error, overridden, selected, editMode, onSelect,
 }
 
 // ─────────────────────── PROVENANCE PANEL ───────────────────────
-function ProvenancePanel({ row, rows, value, overridden, onClose }) {
+function ProvenancePanel({ row, rows, values, value, overridden, onClose }) {
   const knownIds = new Set(rows.map((r) => r.id));
   const deps  = extractDependencies(row.formula, knownIds);
   const dents = dependentsOf(row.id, rows);
   const conf  = CONFIDENCE_META[row.confidence] || CONFIDENCE_META.assumption;
   const p     = row.provenance || {};
+  const isPinned = overridden && row.kind !== 'input' && row.kind !== 'constant';
+
+  // Build a live calculation string: substitute each dependency id with its
+  // current formatted value so reviewers see the actual numbers, e.g.
+  //   a_hourly * d_labor_hrs_yr  →  £175 × 1,820 = £318,500
+  const calcBreakdown = React.useMemo(() => {
+    if (!row.formula) return null;
+    // Sort ids longest-first to avoid partial matches
+    const sorted = [...rows].sort((a, b) => b.id.length - a.id.length);
+    let expr = row.formula;
+    for (const r of sorted) {
+      const v = values[r.id];
+      const formatted = v !== undefined ? formatValue(v, r.format) : r.id;
+      expr = expr.replace(new RegExp('\\b' + r.id + '\\b', 'g'), formatted);
+    }
+    return expr;
+  }, [row.formula, rows, values]);
 
   return (
     <Tile className="apo-panel">
@@ -516,7 +538,7 @@ function ProvenancePanel({ row, rows, value, overridden, onClose }) {
       <div className="apo-panel__tags">
         <Tag type={conf.type}>{conf.label}</Tag>
         <Tag type="gray">{row.kind}</Tag>
-        {overridden && <Tag type="teal">scenario override</Tag>}
+        {isPinned && <Tag type="teal">pinned override</Tag>}
       </div>
 
       {row.confidence === 'placeholder' && (
@@ -534,29 +556,48 @@ function ProvenancePanel({ row, rows, value, overridden, onClose }) {
           </StructuredListRow>
         </StructuredListHead>
         <StructuredListBody>
-          <ProvenanceRow label="What it is"        text={p.what}   />
-          <ProvenanceRow label="Why it matters"    text={p.why}    />
-          <ProvenanceRow label="How it was derived" text={p.how}   />
+          <ProvenanceRow label="What it is"         text={p.what}   />
+          <ProvenanceRow label="Why it matters"     text={p.why}    />
+          <ProvenanceRow label="How it was derived" text={p.how}    />
           <ProvenanceRow label="Source"             text={p.source} />
         </StructuredListBody>
       </StructuredListWrapper>
 
       {row.formula && (
         <>
-          <h5 className="apo-panel__h">Formula</h5>
+          <h5 className="apo-panel__h">Calculation</h5>
+
+          {/* Live substitution — actual numbers from the current model state */}
+          <StructuredListWrapper isCondensed className="apo-panel__list">
+            <StructuredListBody>
+              {deps.map((d) => {
+                const depRow = rows.find((r) => r.id === d);
+                return (
+                  <StructuredListRow key={d}>
+                    <StructuredListCell noWrap>{depRow?.label || d}</StructuredListCell>
+                    <StructuredListCell className="apo-num">
+                      {formatValue(values[d], depRow?.format)}
+                    </StructuredListCell>
+                  </StructuredListRow>
+                );
+              })}
+              <StructuredListRow>
+                <StructuredListCell noWrap><strong>= Result</strong></StructuredListCell>
+                <StructuredListCell className="apo-num">
+                  <strong>{formatValue(value, row.format)}</strong>
+                </StructuredListCell>
+              </StructuredListRow>
+            </StructuredListBody>
+          </StructuredListWrapper>
+
+          {/* Substituted expression — labels replaced with current values */}
+          <h5 className="apo-panel__h" style={{ marginTop: '1rem' }}>Expression</h5>
+          <code className="apo-code">{calcBreakdown}</code>
+
+          {/* Raw formula for reviewers who want to audit the formula itself */}
+          <h5 className="apo-panel__h" style={{ marginTop: '0.75rem' }}>Formula (raw)</h5>
           <code className="apo-code">{row.formula}</code>
           <p className="apo-panel__plain">{humaniseFormula(row.formula, rows)}</p>
-        </>
-      )}
-
-      {deps.length > 0 && (
-        <>
-          <h5 className="apo-panel__h">Depends on ({deps.length})</h5>
-          <div className="apo-chips">
-            {deps.map((d) => (
-              <Tag key={d} type="outline">{labelOf(d, rows)}</Tag>
-            ))}
-          </div>
         </>
       )}
 
